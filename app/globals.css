@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-mono: var(--font-inter), system-ui, sans-serif;
+  --color-lumen-blue: #1d8cff;
+  --color-lumen-cyan: #3ee0d8;
+}
+
+html {
+  background: #0a0a0a;
+  color: #ffffff;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: #0a0a0a;
+  color: #ffffff;
+  font-family: "Inter", system-ui, sans-serif;
+}
+
+::selection {
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.scroll-video-canvas {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: high-quality;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
+  backface-visibility: hidden;
+}
