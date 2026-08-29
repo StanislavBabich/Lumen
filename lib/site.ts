@@ -1,7 +1,10 @@
-export const HERO_VIDEO_SRC = "/hero.mp4";
-
 export const COORDINATOR_PORTRAIT = "/dr-chen.webp";
-export const HERO_POSTER_SRC = "/dr-chen.webp";
+export const HERO_POSTER_SRC = "/hero-poster.jpg";
+export const HERO_FRAME_COUNT = 36;
+
+export function heroFrameSrc(index: number) {
+  return `/hero-frames/${String(index + 1).padStart(3, "0")}.jpg`;
+}
 
 export const NAV_LINKS = [
   { href: "#advantages", label: "Advantages", superscript: "3" },

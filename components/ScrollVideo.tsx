@@ -1,43 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { HERO_POSTER_SRC, HERO_VIDEO_SRC } from "@/lib/site";
+import { HERO_FRAME_COUNT, HERO_POSTER_SRC, heroFrameSrc } from "@/lib/site";
 
-const LERP = 0.16;
-const MAX_FRAMES = 40;
-const MIN_FRAMES = 20;
-const EXTRACT_FPS = 8;
-const MAX_FRAME_WIDTH = 960;
-const SEEK_DELTA = 0.03;
-const DURATION_PAD = 0.05;
-const EXTRACT_YIELD_MS = 200;
-
-function shouldUseLiteBackground() {
-  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
-  if (window.matchMedia("(max-width: 768px)").matches) return true;
-  if (
-    window.matchMedia("(pointer: coarse)").matches &&
-    window.matchMedia("(max-width: 1024px)").matches
-  ) {
-    return true;
-  }
-
-  const connection = (
-    navigator as Navigator & {
-      connection?: { saveData?: boolean; effectiveType?: string };
-    }
-  ).connection;
-  if (connection?.saveData) return true;
-  if (connection?.effectiveType === "2g" || connection?.effectiveType === "slow-2g") {
-    return true;
-  }
-
-  return false;
-}
-
-function devicePixelRatio() {
-  return Math.min(window.devicePixelRatio || 1, 2);
-}
+const LERP = 0.22;
 
 function clamp01(value: number) {
   return Math.min(1, Math.max(0, value));
@@ -47,6 +13,11 @@ function scrollProgress() {
   const max = document.documentElement.scrollHeight - window.innerHeight;
   if (max <= 0) return 0;
   return clamp01(window.scrollY / max);
+}
+
+function frameIndex(progress: number, count: number) {
+  if (count <= 1) return 0;
+  return Math.min(count - 1, Math.floor(progress * (count - 1)));
 }
 
 function drawCover(
@@ -69,243 +40,113 @@ function drawCover(
   );
 }
 
-function LiteBackground() {
-  return (
-    <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-[#0a0a0a]">
-      <div className="hero-aurora" aria-hidden />
-      <div className="hero-orb" aria-hidden>
-        <img src={HERO_POSTER_SRC} alt="" decoding="async" />
-      </div>
-    </div>
-  );
-}
-
 export function ScrollVideo() {
-  const [lite, setLite] = useState(true);
-
-  useEffect(() => {
-    setLite(shouldUseLiteBackground());
-  }, []);
-
-  if (lite) return <LiteBackground />;
-
-  return <DesktopScrollVideo />;
-}
-
-function DesktopScrollVideo() {
-  const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [hasFrame, setHasFrame] = useState(false);
-  const [cacheReady, setCacheReady] = useState(false);
+  const [ready, setReady] = useState(false);
 
   useEffect(() => {
-    const video = videoRef.current;
     const canvas = canvasRef.current;
-    if (!video || !canvas) return;
+    if (!canvas) return;
 
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const frames: (HTMLImageElement | undefined)[] = Array.from({ length: HERO_FRAME_COUNT });
+    let loaded = 0;
     let cancelled = false;
     let raf = 0;
-    let smoothed = 0;
-    let lastSeek = -1;
-    let lastCacheIndex = -1;
-    let frames: ImageBitmap[] = [];
-    let framesReady = false;
-
-    const prepareContext = (ctx: CanvasRenderingContext2D) => {
-      const dpr = devicePixelRatio();
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.imageSmoothingEnabled = true;
-      ctx.imageSmoothingQuality = "medium";
-    };
+    let smoothed = reduceMotion ? 0 : scrollProgress();
+    let lastIndex = -1;
 
     const resize = () => {
-      const dpr = devicePixelRatio();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
       canvas.width = Math.round(window.innerWidth * dpr);
       canvas.height = Math.round(window.innerHeight * dpr);
       canvas.style.width = `${window.innerWidth}px`;
       canvas.style.height = `${window.innerHeight}px`;
-      lastCacheIndex = -1;
+      lastIndex = -1;
     };
 
-    const drawVideoFrame = () => {
+    const nearestFrame = (index: number) => {
+      const exact = frames[index];
+      if (exact?.complete && exact.naturalWidth > 0) return exact;
+
+      for (let offset = 1; offset < HERO_FRAME_COUNT; offset += 1) {
+        const before = frames[index - offset];
+        if (before?.complete && before.naturalWidth > 0) return before;
+        const after = frames[index + offset];
+        if (after?.complete && after.naturalWidth > 0) return after;
+      }
+      return undefined;
+    };
+
+    const paint = (index: number) => {
+      const image = nearestFrame(index);
       const ctx = canvas.getContext("2d");
-      if (!ctx || video.videoWidth === 0) return;
-      prepareContext(ctx);
+      if (!image || !ctx) return;
+      if (index === lastIndex && lastIndex !== -1) return;
+
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "medium";
       drawCover(
         ctx,
-        video,
-        video.videoWidth,
-        video.videoHeight,
+        image,
+        image.naturalWidth,
+        image.naturalHeight,
         window.innerWidth,
         window.innerHeight,
       );
-    };
-
-    const drawCached = (progress: number) => {
-      if (frames.length === 0) return;
-      const index = Math.min(
-        frames.length - 1,
-        Math.floor(progress * (frames.length - 1)),
-      );
-      if (index === lastCacheIndex) return;
-
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return;
-      const bitmap = frames[index];
-      prepareContext(ctx);
-      drawCover(ctx, bitmap, bitmap.width, bitmap.height, window.innerWidth, window.innerHeight);
-      lastCacheIndex = index;
+      lastIndex = index;
     };
 
     const tick = () => {
       if (cancelled) return;
-      const target = scrollProgress();
+      const target = reduceMotion ? 0 : scrollProgress();
       smoothed += (target - smoothed) * LERP;
-
-      if (framesReady) {
-        drawCached(smoothed);
-      } else if (video.duration && !Number.isNaN(video.duration)) {
-        const time = smoothed * Math.max(0, video.duration - DURATION_PAD);
-        if (Math.abs(time - lastSeek) > SEEK_DELTA) {
-          lastSeek = time;
-          try {
-            video.currentTime = time;
-          } catch {
-            /* ignore seek abort */
-          }
-        }
-      }
-
+      paint(frameIndex(smoothed, HERO_FRAME_COUNT));
       raf = requestAnimationFrame(tick);
     };
 
-    const onFrameReady = () => {
+    const onFrameLoaded = () => {
       if (cancelled) return;
-      setHasFrame(true);
+      loaded += 1;
+      if (loaded === 1) setReady(true);
+      lastIndex = -1;
     };
 
-    const extractFrames = async () => {
-      await new Promise((resolve) => setTimeout(resolve, EXTRACT_YIELD_MS));
-      if (cancelled) return;
-
-      const offscreen = document.createElement("video");
-      offscreen.muted = true;
-      offscreen.playsInline = true;
-      offscreen.preload = "auto";
-      offscreen.crossOrigin = "anonymous";
-      offscreen.src = HERO_VIDEO_SRC;
-
-      const loaded = await new Promise<boolean>((resolve) => {
-        offscreen.addEventListener("loadeddata", () => resolve(true), { once: true });
-        offscreen.addEventListener("error", () => resolve(false), { once: true });
-      });
-
-      if (!loaded || cancelled || !offscreen.duration) return;
-
-      const count = Math.min(
-        MAX_FRAMES,
-        Math.max(MIN_FRAMES, Math.round(offscreen.duration * EXTRACT_FPS)),
-      );
-      const scale = Math.min(1, MAX_FRAME_WIDTH / (offscreen.videoWidth || MAX_FRAME_WIDTH));
-      const width = Math.round((offscreen.videoWidth || MAX_FRAME_WIDTH) * scale);
-      const height = Math.round((offscreen.videoHeight || 720) * scale);
-
-      const seekTo = (time: number) =>
-        new Promise<void>((resolve, reject) => {
-          const onSeeked = () => {
-            offscreen.removeEventListener("seeked", onSeeked);
-            offscreen.removeEventListener("error", onError);
-            resolve();
-          };
-          const onError = () => {
-            offscreen.removeEventListener("seeked", onSeeked);
-            offscreen.removeEventListener("error", onError);
-            reject(new Error("seek failed"));
-          };
-          offscreen.addEventListener("seeked", onSeeked);
-          offscreen.addEventListener("error", onError);
-          offscreen.currentTime = time;
-        });
-
-      const extracted: ImageBitmap[] = [];
-
-      try {
-        for (let index = 0; index < count; index += 1) {
-          if (cancelled) return;
-          const time =
-            (index / Math.max(1, count - 1)) * Math.max(0, offscreen.duration - DURATION_PAD);
-          await seekTo(time);
-          extracted.push(
-            await createImageBitmap(offscreen, {
-              resizeWidth: width,
-              resizeHeight: height,
-            }),
-          );
-        }
-
-        frames = extracted;
-        framesReady = true;
-        lastCacheIndex = -1;
-        setCacheReady(true);
-      } catch {
-        extracted.forEach((frame) => frame.close());
-      } finally {
-        offscreen.removeAttribute("src");
-        offscreen.load();
-      }
-    };
+    for (let index = 0; index < HERO_FRAME_COUNT; index += 1) {
+      const image = new Image();
+      image.decoding = "async";
+      image.src = heroFrameSrc(index);
+      image.onload = onFrameLoaded;
+      image.onerror = onFrameLoaded;
+      frames[index] = image;
+    }
 
     resize();
     window.addEventListener("resize", resize);
-    video.addEventListener("loadeddata", onFrameReady);
-    video.addEventListener("seeked", drawVideoFrame);
-
-    if (video.readyState >= 2) {
-      onFrameReady();
-      void extractFrames();
-    } else {
-      video.addEventListener("loadeddata", () => void extractFrames(), { once: true });
-    }
-
-    video.pause();
     raf = requestAnimationFrame(tick);
 
     return () => {
       cancelled = true;
       cancelAnimationFrame(raf);
       window.removeEventListener("resize", resize);
-      video.removeEventListener("loadeddata", onFrameReady);
-      video.removeEventListener("seeked", drawVideoFrame);
-      frames.forEach((frame) => frame.close());
     };
   }, []);
 
   return (
     <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-[#0a0a0a]">
-      <div className="hero-aurora" aria-hidden />
-      <div
-        className={`hero-orb transition-opacity duration-500 ${
-          hasFrame || cacheReady ? "opacity-0" : "opacity-100"
-        }`}
-        aria-hidden
-      >
-        <img src={HERO_POSTER_SRC} alt="" decoding="async" />
-      </div>
-      <video
-        ref={videoRef}
-        src={HERO_VIDEO_SRC}
-        muted
-        playsInline
-        preload="metadata"
-        crossOrigin="anonymous"
-        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
-          hasFrame && !cacheReady ? "opacity-100" : "opacity-0"
+      <img
+        src={HERO_POSTER_SRC}
+        alt=""
+        className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-300 ${
+          ready ? "opacity-0" : "opacity-100"
         }`}
       />
       <canvas
         ref={canvasRef}
-        className={`scroll-video-canvas absolute inset-0 h-full w-full transition-opacity duration-500 ${
-          cacheReady ? "opacity-100" : "opacity-0"
+        className={`scroll-video-canvas absolute inset-0 h-full w-full transition-opacity duration-300 ${
+          ready ? "opacity-100" : "opacity-0"
         }`}
       />
     </div>
