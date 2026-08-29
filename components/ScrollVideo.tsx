@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { HERO_VIDEO_SRC } from "@/lib/site";
+import { HERO_POSTER_SRC, HERO_VIDEO_FALLBACK_SRC, HERO_VIDEO_SRC } from "@/lib/site";
+
+const isRemoteSrc = (src: string) => /^https?:\/\//.test(src);
 
 const LERP = 0.01;
 const MAX_FRAMES = 90;
@@ -147,7 +149,9 @@ export function ScrollVideo() {
       offscreen.muted = true;
       offscreen.playsInline = true;
       offscreen.preload = "auto";
-      offscreen.crossOrigin = "anonymous";
+      if (!isRemoteSrc(HERO_VIDEO_SRC)) {
+        offscreen.crossOrigin = "anonymous";
+      }
       offscreen.src = HERO_VIDEO_SRC;
 
       const loaded = await new Promise<boolean>((resolve) => {
@@ -239,27 +243,30 @@ export function ScrollVideo() {
 
   return (
     <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-[#0a0a0a]">
-      {!posterFailed ? (
-        <img
-          src="/hero-poster.jpg"
-          alt=""
-          className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
-            posterHidden ? "opacity-0" : "opacity-100"
-          }`}
-          onError={() => setPosterFailed(true)}
-        />
-      ) : null}
+      <div className="hero-aurora" aria-hidden />
+      <div
+        className={`hero-orb transition-opacity duration-700 ${
+          posterHidden ? "opacity-0" : "opacity-100"
+        }`}
+        aria-hidden
+      >
+        {!posterFailed ? (
+          <img src={HERO_POSTER_SRC} alt="" onError={() => setPosterFailed(true)} />
+        ) : null}
+      </div>
       <video
         ref={videoRef}
-        src={HERO_VIDEO_SRC}
         muted
         playsInline
         preload="auto"
-        crossOrigin="anonymous"
+        crossOrigin={isRemoteSrc(HERO_VIDEO_SRC) ? undefined : "anonymous"}
         className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
           hasFrame && !cacheReady ? "opacity-100" : "opacity-0"
         }`}
-      />
+      >
+        <source src={HERO_VIDEO_SRC} type="video/mp4" />
+        <source src={HERO_VIDEO_FALLBACK_SRC} type="video/mp4" />
+      </video>
       <canvas
         ref={canvasRef}
         className={`scroll-video-canvas absolute inset-0 h-full w-full transition-opacity duration-500 ${

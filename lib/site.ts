@@ -1,8 +1,9 @@
-export const HERO_VIDEO_SRC =
+export const HERO_VIDEO_SRC = "/hero.mp4";
+export const HERO_VIDEO_FALLBACK_SRC =
   "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260729_102822_0e6c87e8-c141-4744-bf32-ad30db296371.mp4";
 
-export const COORDINATOR_PORTRAIT =
-  "https://images.higgs.ai/?default=1&output=webp&url=https%3A%2F%2Fd8j0ntlcm91z4.cloudfront.net%2Fuser_38xzZboKViGWJOttwIXH07lWA1P%2Fhf_20260728_050334_5b076e26-0ce7-4898-b432-d764190e448f.png&w=1280&q=85";
+export const COORDINATOR_PORTRAIT = "/dr-chen.webp";
+export const HERO_POSTER_SRC = "/dr-chen.webp";
 
 export const NAV_LINKS = [
   { href: "#advantages", label: "Advantages", superscript: "3" },
@@ -78,32 +79,28 @@ export const SURGEONS = [
   {
     name: "Dr. Amara Chen",
     title: "Chief Refractive Surgeon, MD, PhD",
-    image:
-      "https://images.unsplash.com/photo-1594824476967-48c8b964273f?auto=format&fit=crop&w=800&q=80",
+    image: "/surgeon-chen.webp",
     credentials:
       "Fellowship, Moorfields Refractive Service. 18,000+ laser procedures. Principal investigator, next-gen SMILE platforms. Board-certified ophthalmology, subspecialty refractive surgery.",
   },
   {
     name: "Dr. Elias Moreau",
     title: "Chief Vitreoretinal Surgeon, MD, PhD",
-    image:
-      "https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&w=800&q=80",
+    image: "/surgeon-moreau.webp",
     credentials:
       "Vitreoretinal fellowship, Wilmer Eye Institute. Complex PPV, diabetic traction, and macular reconstruction. Published on intraoperative OCT-guided membrane peel.",
   },
   {
     name: "Dr. Sofia Rahman",
     title: "Director of Cataract & Lens, MD, FACS",
-    image:
-      "https://images.unsplash.com/photo-1559839734-2b71ea197ec2?auto=format&fit=crop&w=800&q=80",
+    image: "/surgeon-rahman.webp",
     credentials:
       "Anterior segment fellowship, Bascom Palmer. Premium IOL planning for post-refractive and irregular corneas. FACS; examiner, cataract outcomes registry.",
   },
   {
     name: "Dr. Henrik Voss",
     title: "Glaucoma & Anterior Segment, MD, FRCS",
-    image:
-      "https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&w=800&q=80",
+    image: "/surgeon-voss.webp",
     credentials:
       "FRCS (Ed) Ophthalmology. MIGS and filtration revision specialist. Former lead, European Glaucoma Society surgical workshop.",
   },
