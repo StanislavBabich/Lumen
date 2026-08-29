@@ -1,18 +1,39 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { HERO_POSTER_SRC, HERO_VIDEO_FALLBACK_SRC, HERO_VIDEO_SRC } from "@/lib/site";
+import { HERO_POSTER_SRC, HERO_VIDEO_SRC } from "@/lib/site";
 
-const isRemoteSrc = (src: string) => /^https?:\/\//.test(src);
-
-const LERP = 0.01;
-const MAX_FRAMES = 90;
-const MIN_FRAMES = 24;
-const EXTRACT_FPS = 12;
-const MAX_FRAME_WIDTH = 1280;
-const SEEK_DELTA = 0.04;
+const LERP = 0.16;
+const MAX_FRAMES = 40;
+const MIN_FRAMES = 20;
+const EXTRACT_FPS = 8;
+const MAX_FRAME_WIDTH = 960;
+const SEEK_DELTA = 0.03;
 const DURATION_PAD = 0.05;
-const EXTRACT_YIELD_MS = 300;
+const EXTRACT_YIELD_MS = 200;
+
+function shouldUseLiteBackground() {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return true;
+  if (window.matchMedia("(max-width: 768px)").matches) return true;
+  if (
+    window.matchMedia("(pointer: coarse)").matches &&
+    window.matchMedia("(max-width: 1024px)").matches
+  ) {
+    return true;
+  }
+
+  const connection = (
+    navigator as Navigator & {
+      connection?: { saveData?: boolean; effectiveType?: string };
+    }
+  ).connection;
+  if (connection?.saveData) return true;
+  if (connection?.effectiveType === "2g" || connection?.effectiveType === "slow-2g") {
+    return true;
+  }
+
+  return false;
+}
 
 function devicePixelRatio() {
   return Math.min(window.devicePixelRatio || 1, 2);
@@ -48,12 +69,34 @@ function drawCover(
   );
 }
 
+function LiteBackground() {
+  return (
+    <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-[#0a0a0a]">
+      <div className="hero-aurora" aria-hidden />
+      <div className="hero-orb" aria-hidden>
+        <img src={HERO_POSTER_SRC} alt="" decoding="async" />
+      </div>
+    </div>
+  );
+}
+
 export function ScrollVideo() {
+  const [lite, setLite] = useState(true);
+
+  useEffect(() => {
+    setLite(shouldUseLiteBackground());
+  }, []);
+
+  if (lite) return <LiteBackground />;
+
+  return <DesktopScrollVideo />;
+}
+
+function DesktopScrollVideo() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hasFrame, setHasFrame] = useState(false);
   const [cacheReady, setCacheReady] = useState(false);
-  const [posterFailed, setPosterFailed] = useState(false);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -149,9 +192,7 @@ export function ScrollVideo() {
       offscreen.muted = true;
       offscreen.playsInline = true;
       offscreen.preload = "auto";
-      if (!isRemoteSrc(HERO_VIDEO_SRC)) {
-        offscreen.crossOrigin = "anonymous";
-      }
+      offscreen.crossOrigin = "anonymous";
       offscreen.src = HERO_VIDEO_SRC;
 
       const loaded = await new Promise<boolean>((resolve) => {
@@ -239,34 +280,28 @@ export function ScrollVideo() {
     };
   }, []);
 
-  const posterHidden = hasFrame || cacheReady;
-
   return (
     <div className="pointer-events-none fixed inset-0 z-0 overflow-hidden bg-[#0a0a0a]">
       <div className="hero-aurora" aria-hidden />
       <div
-        className={`hero-orb transition-opacity duration-700 ${
-          posterHidden ? "opacity-0" : "opacity-100"
+        className={`hero-orb transition-opacity duration-500 ${
+          hasFrame || cacheReady ? "opacity-0" : "opacity-100"
         }`}
         aria-hidden
       >
-        {!posterFailed ? (
-          <img src={HERO_POSTER_SRC} alt="" onError={() => setPosterFailed(true)} />
-        ) : null}
+        <img src={HERO_POSTER_SRC} alt="" decoding="async" />
       </div>
       <video
         ref={videoRef}
+        src={HERO_VIDEO_SRC}
         muted
         playsInline
-        preload="auto"
-        crossOrigin={isRemoteSrc(HERO_VIDEO_SRC) ? undefined : "anonymous"}
+        preload="metadata"
+        crossOrigin="anonymous"
         className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
           hasFrame && !cacheReady ? "opacity-100" : "opacity-0"
         }`}
-      >
-        <source src={HERO_VIDEO_SRC} type="video/mp4" />
-        <source src={HERO_VIDEO_FALLBACK_SRC} type="video/mp4" />
-      </video>
+      />
       <canvas
         ref={canvasRef}
         className={`scroll-video-canvas absolute inset-0 h-full w-full transition-opacity duration-500 ${

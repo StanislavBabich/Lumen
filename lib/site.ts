@@ -1,6 +1,4 @@
 export const HERO_VIDEO_SRC = "/hero.mp4";
-export const HERO_VIDEO_FALLBACK_SRC =
-  "https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260729_102822_0e6c87e8-c141-4744-bf32-ad30db296371.mp4";
 
 export const COORDINATOR_PORTRAIT = "/dr-chen.webp";
 export const HERO_POSTER_SRC = "/dr-chen.webp";
